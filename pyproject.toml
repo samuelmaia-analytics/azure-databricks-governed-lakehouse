@@ -1,0 +1,11 @@
+[project]
+name = "azure-databricks-governed-lakehouse"
+version = "0.1.0"
+requires-python = ">=3.11,<3.12"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
