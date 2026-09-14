@@ -1,0 +1,62 @@
+{
+    "publication_summary":  {
+                                "datasets":  6,
+                                "approved":  6,
+                                "needs_review":  0,
+                                "blocked":  0,
+                                "invalid_rows":  0,
+                                "quarantined_rows":  0,
+                                "records_lost":  0,
+                                "publication_gate":  "APPROVED"
+                            },
+    "datasets":  [
+                     {
+                         "dataset":  "orders",
+                         "bronze_rows":  3421083,
+                         "silver_rows":  3421083,
+                         "publication_status":  "APPROVED"
+                     },
+                     {
+                         "dataset":  "products",
+                         "bronze_rows":  49688,
+                         "silver_rows":  49688,
+                         "publication_status":  "APPROVED"
+                     },
+                     {
+                         "dataset":  "aisles",
+                         "bronze_rows":  134,
+                         "silver_rows":  134,
+                         "publication_status":  "APPROVED"
+                     },
+                     {
+                         "dataset":  "departments",
+                         "bronze_rows":  21,
+                         "silver_rows":  21,
+                         "publication_status":  "APPROVED"
+                     },
+                     {
+                         "dataset":  "order_products_prior",
+                         "bronze_rows":  32434489,
+                         "silver_rows":  32434489,
+                         "publication_status":  "APPROVED"
+                     },
+                     {
+                         "dataset":  "order_products_train",
+                         "bronze_rows":  1384617,
+                         "silver_rows":  1384617,
+                         "publication_status":  "APPROVED"
+                     }
+                 ],
+    "quality":  {
+                    "row_rules":  35,
+                    "referential_integrity_checks":  8,
+                    "uniqueness_checks":  6,
+                    "failed_error_checks":  0,
+                    "warnings":  0
+                },
+    "tests":  {
+                  "total":  99,
+                  "passed":  99,
+                  "failed":  0
+              }
+}

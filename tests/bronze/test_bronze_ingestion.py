@@ -3,7 +3,6 @@
 from uuid import UUID, uuid4
 
 import pytest
-from pyspark.sql import SparkSession
 from pyspark.sql.types import StringType, TimestampType
 
 from src.bronze.ingest import (
@@ -16,19 +15,7 @@ from src.bronze.ingest import (
     write_delta,
 )
 from src.bronze.schemas import AISLES_SCHEMA, PRODUCTS_SCHEMA
-from src.common.spark import get_spark_session, to_spark_path
-
-
-@pytest.fixture
-def spark(tmp_path, monkeypatch):
-    # Keep Spark's default warehouse and working directory outside the project.
-    monkeypatch.chdir(tmp_path)
-    SparkSession.builder.config("spark.sql.warehouse.dir", to_spark_path(tmp_path / "warehouse"))
-    session = get_spark_session("Bronze synthetic tests")
-    try:
-        yield session
-    finally:
-        session.stop()
+from src.common.spark import to_spark_path
 
 
 @pytest.fixture
