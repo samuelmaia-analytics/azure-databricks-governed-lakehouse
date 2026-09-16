@@ -1,0 +1,64 @@
+{
+  "validation_status": "PASS",
+  "tests": {
+    "ruff": "PASS",
+    "gold_passed": 31,
+    "gold_failed": 0,
+    "total_passed": 130,
+    "total_failed": 0
+  },
+  "gold": {
+    "gold_dim_product": {
+      "rows": 49688,
+      "unique_key": true,
+      "delta_log": true,
+      "readback_schema": "PASS",
+      "exact_readback": "PASS"
+    },
+    "gold_fact_order_items": {
+      "rows": 33819106,
+      "unique_key": true,
+      "delta_log": true,
+      "readback_schema": "PASS",
+      "exact_readback": "PASS"
+    },
+    "gold_fact_orders": {
+      "rows": 3421083,
+      "unique_key": true,
+      "delta_log": true,
+      "readback_schema": "PASS",
+      "exact_readback": "PASS"
+    },
+    "gold_user_behavior": {
+      "rows": 412418,
+      "unique_key": true,
+      "delta_log": true,
+      "readback_schema": "PASS",
+      "exact_readback": "PASS"
+    }
+  },
+  "observed_metrics": {
+    "distinct_users": 206209,
+    "orders_by_eval_set": {
+      "prior": 3214874,
+      "train": 131209,
+      "test": 75000
+    },
+    "global_reorder_rate": 0.5900617242809434,
+    "avg_items_per_eligible_order": 10.10707325550502
+  },
+  "reconciliations": {
+    "expected_order_items": 33819106,
+    "order_items": 33819106,
+    "orders": 3421083,
+    "user_orders_observed": 3421083,
+    "items_reordered": 19955360,
+    "orders_reordered": 19955360,
+    "product_and_order_coverage": "PASS",
+    "test_baskets_null": "PASS",
+    "safe_divisions": "PASS",
+    "lost_records": 0,
+    "multiplied_records": 0,
+    "previous_layers_preserved": true
+  }
+}
