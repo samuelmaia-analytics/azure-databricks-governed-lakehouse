@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 
@@ -72,6 +72,26 @@ def test_bronze_entrypoint_calls_ingestion(monkeypatch, config):
     session = MagicMock()
     stages.run_bronze(session, config)
     ingestion.assert_called_once_with(spark=session, config=config)
+
+
+def test_read_layer_reads_all_datasets_as_delta():
+    spark = MagicMock()
+    config = MagicMock()
+    layer = "bronze"
+    config.dataset.side_effect = lambda requested_layer, name: (
+        f"/data/{requested_layer}/{name}"
+    )
+    loaded = {name: object() for name in stages.DATASETS}
+    spark.read.format.return_value.load.side_effect = loaded.values()
+
+    result = stages.read_layer(spark, config, layer)
+
+    assert result == loaded
+    assert config.dataset.call_args_list == [call(layer, name) for name in stages.DATASETS]
+    assert spark.read.format.call_args_list == [call("delta")] * len(stages.DATASETS)
+    assert spark.read.format.return_value.load.call_args_list == [
+        call(f"/data/{layer}/{name}") for name in stages.DATASETS
+    ]
 
 
 @pytest.fixture

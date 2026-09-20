@@ -22,8 +22,11 @@ class GateRejected(RuntimeError):
 
 
 def read_layer(spark, config, layer):
-    return {name: spark.read.format("delta").load(config.dataset(layer, name))
-            for name in DATASETS}
+    datasets = {}
+    for name in DATASETS:
+        path = config.dataset(layer, name)
+        datasets[name] = spark.read.format("delta").load(path)
+    return datasets
 
 
 def run_bronze(spark, config):
