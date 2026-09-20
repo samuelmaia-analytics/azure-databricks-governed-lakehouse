@@ -1,6 +1,6 @@
 ﻿# Azure Databricks Governed Lakehouse
 
-Dados podem atravessar um pipeline sem critérios claros para chegar ao consumo, e joins ou métricas sem granularidade definida podem distorcer análises. Este projeto implementa um Lakehouse governado em PySpark e Delta Lake: qualidade e um Publication Gate controlam a Silver, enquanto um modelo dimensional Gold organiza produtos, itens, pedidos e comportamento por usuário. Na execução real local, seis datasets Silver e quatro tabelas Gold foram publicados e validados, com zero perdas ou multiplicações nas reconciliações Gold e **130 testes automatizados passando**.
+Dados podem atravessar um pipeline sem critérios claros para chegar ao consumo, e joins ou métricas sem granularidade definida podem distorcer análises. Este projeto implementa um Lakehouse governado em PySpark e Delta Lake: qualidade e um Publication Gate controlam a Silver, enquanto um modelo dimensional Gold organiza produtos, itens, pedidos e comportamento por usuário. Na execução real local, seis datasets Silver e quatro tabelas Gold foram publicados e validados, com zero perdas ou multiplicações nas reconciliações Gold e **186 testes automatizados passando**.
 
 ## O problema
 
@@ -53,7 +53,7 @@ A execução real e a validação do projeto comprovaram:
 - **0 registros perdidos na publicação Silver**: Bronze Rows = Silver Rows nos seis datasets.
 - **4 tabelas Gold publicadas em Delta**, com chaves únicas, schemas verificados e igualdade exata na releitura.
 - **0 registros perdidos e 0 multiplicados** nas reconciliações Gold.
-- **130 testes automatizados passando**, incluindo 31 testes Gold.
+- **186 testes automatizados passando**, incluindo 31 testes Gold.
 - **35 regras de qualidade de linha**, **8 checks de integridade referencial** e **6 checks de unicidade** implementados.
 
 | Dataset | Registros Bronze | Registros Silver | Gate |
@@ -287,7 +287,7 @@ O diretório `data/gold/` contém as quatro tabelas Delta locais; os dados reais
 
 ## Testes
 
-**130 testes automatizados passando, incluindo 31 Gold.** Os testes protegem os comportamentos e as regras do pipeline: interpretação dos arquivos, preservação dos dados, classificação de falhas e recusa de publicação quando o Gate não aprova.
+**186 testes automatizados passando, incluindo 31 Gold.** Os testes protegem os comportamentos e as regras do pipeline: interpretação dos arquivos, preservação dos dados, classificação de falhas e recusa de publicação quando o Gate não aprova.
 
 A cobertura inclui schemas, ingestão Bronze, parsing CSV, caminhos Windows com espaços, leitura/escrita Delta Lake, Data Quality, integridade referencial, unicidade, Quarantine, Publication Gate e publicação Silver.
 
