@@ -297,6 +297,10 @@ A suíte usa dados sintéticos e diretórios temporários, sem depender do datas
 
 ## Como executar
 
+### Runtime local e Databricks
+
+O projeto possui configuração explícita de runtime para execução local e no Azure Databricks. Em ambiente local, os caminhos das camadas são resolvidos a partir de `data/`. No Databricks, o pipeline aceita caminhos `dbfs:/`, `abfss://` e `/Volumes/`. A lógica de ingestão, qualidade, publicação e modelagem permanece a mesma entre os ambientes.
+
 Requisitos: **Python 3.11** e **Java 17**, com `JAVA_HOME` configurado e Java disponível no `PATH`. As versões das dependências Python estão fixadas em `requirements.txt`.
 
 Na raiz do projeto, em PowerShell:
