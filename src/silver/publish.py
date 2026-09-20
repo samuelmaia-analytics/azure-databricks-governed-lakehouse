@@ -7,6 +7,7 @@ from pathlib import Path
 from pyspark.sql import DataFrame, functions as F
 
 from src.common.spark import to_spark_path
+from src.common.paths import destination_path as resolve_destination
 from src.quality.engine import DQ_COLUMNS
 from src.quality.publication_gate import PublicationDecision, PublicationStatus
 
@@ -16,7 +17,7 @@ SILVER_COLUMNS = ("_published_at", "_publication_status", "_publication_reason")
 @dataclass(frozen=True)
 class SilverPublicationResult:
     dataset: str
-    destination_path: Path
+    destination_path: str | Path
     status: PublicationStatus
     reason: str
     row_count: int
@@ -29,7 +30,7 @@ def publish_silver(
     destination_path: str | Path,
     gate_result: PublicationDecision,
 ) -> SilverPublicationResult:
-    """Overwrite a local Delta destination only for APPROVED, nonempty input.
+    """Overwrite a Delta destination only for APPROVED, nonempty input.
 
     Empty APPROVED input is a no-op, preserving any existing destination. The
     normal gate requires review for empty datasets; this also protects callers
@@ -39,7 +40,7 @@ def publish_silver(
     """
     if not dataset_name.strip() or gate_result.dataset != dataset_name:
         raise ValueError("Gate dataset must match nonempty dataset_name")
-    destination = Path(destination_path).resolve()
+    destination = resolve_destination(destination_path)
     status = PublicationStatus(gate_result.status)
     if status != PublicationStatus.APPROVED:
         return SilverPublicationResult(

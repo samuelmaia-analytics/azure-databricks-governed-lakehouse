@@ -14,6 +14,7 @@ from pyspark import StorageLevel
 from pyspark.sql import functions as F
 
 from src.common.spark import get_spark_session, to_spark_path
+from src.common.runtime import require_local_audit
 from src.quality.checks import (
     REFERENTIAL_CHECKS,
     UNIQUENESS_CHECKS,
@@ -50,6 +51,7 @@ def require(condition, message):
 
 
 def main():
+    require_local_audit()
     before = {name: fingerprint(ROOT / "data" / name) for name in ("raw", "bronze")}
     quarantine = fingerprint(ROOT / "data/quarantine")
     require(set(quarantine) <= {".gitkeep"}, "Quarantine contains real files")

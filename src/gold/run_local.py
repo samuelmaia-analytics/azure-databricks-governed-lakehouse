@@ -14,6 +14,7 @@ from pyspark import StorageLevel
 from pyspark.sql import functions as F
 
 from src.common.spark import get_spark_session, to_spark_path
+from src.common.runtime import require_local_audit
 from src.gold.common import ITEM_COLUMNS, ORDER_COLUMNS, require_key
 from src.gold.dim_product import build_dim_product
 from src.gold.fact_order_items import build_fact_order_items
@@ -180,6 +181,7 @@ def validate(gold, silver, stage):
 
 
 def main():
+    require_local_audit()
     layers = ("raw", "bronze", "silver", "quarantine")
     before = {name: inventory(ROOT / "data" / name) for name in layers}
     spark = get_spark_session("Gold real validation and publication")

@@ -16,9 +16,10 @@ from src.bronze.schemas import (
     PRODUCTS_SCHEMA,
 )
 from src.common.spark import get_spark_session, to_spark_path
+from src.common.paths import destination_path, is_remote_path, join_path, require_separate_paths
+from src.common.runtime import RuntimeConfig, RuntimeEnv
 
 logger = logging.getLogger(__name__)
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 @dataclass(frozen=True)
@@ -37,9 +38,11 @@ DATASETS = {
 }
 
 
-def validate_source_file(source_file: str | Path) -> Path:
-    """Return an absolute path or fail before any Spark work."""
-    source = Path(source_file).resolve()
+def validate_source_file(source_file: str | Path) -> str | Path:
+    """Validate local existence; remote existence/permissions are checked by Spark."""
+    source = destination_path(source_file)
+    if is_remote_path(source):
+        return source
     if not source.is_file():
         raise FileNotFoundError(f"Source CSV file not found: {source}")
     return source
@@ -64,7 +67,7 @@ def read_csv(spark: SparkSession, source_file: str | Path, schema: StructType) -
 def add_ingestion_metadata(
     dataframe: DataFrame, source_file: str | Path, batch_id: str
 ) -> DataFrame:
-    """Record the absolute local source path, batch UUID and UTC ingestion timestamp."""
+    """Record the source location, batch UUID and UTC ingestion timestamp."""
     return (
         dataframe.withColumn("_ingested_at", F.current_timestamp())
         .withColumn("_source_file", F.lit(to_spark_path(source_file)))
@@ -83,11 +86,11 @@ def ingest_dataset(
     raw_path: str | Path,
     bronze_path: str | Path,
     batch_id: str,
-) -> Path:
+) -> str | Path:
     """Ingest one mapped dataset using the caller's session and batch."""
     dataset = DATASETS[dataset_name]
-    source = validate_source_file(Path(raw_path) / dataset.filename)
-    destination = Path(bronze_path).resolve() / dataset_name
+    source = validate_source_file(join_path(raw_path, dataset.filename))
+    destination = destination_path(join_path(bronze_path, dataset_name))
     logger.info("Ingesting %s to %s (batch %s)", source, destination, batch_id)
     dataframe = read_csv(spark, source, dataset.schema)
     write_delta(add_ingestion_metadata(dataframe, source, batch_id), destination)
@@ -96,9 +99,10 @@ def ingest_dataset(
 
 
 def run_bronze_ingestion(
-    raw_path: str | Path = PROJECT_ROOT / "data" / "raw",
-    bronze_path: str | Path = PROJECT_ROOT / "data" / "bronze",
+    raw_path: str | Path | None = None,
+    bronze_path: str | Path | None = None,
     spark: SparkSession | None = None,
+    config: RuntimeConfig | None = None,
 ) -> str:
     """Overwrite all six datasets with one UUID; return that batch ID.
 
@@ -106,17 +110,22 @@ def run_bronze_ingestion(
     this function does not provide a transaction spanning all six datasets.
     A caller-supplied session remains open; an internally acquired one is stopped.
     """
-    raw = Path(raw_path).resolve()
-    bronze = Path(bronze_path).resolve()
-    if raw == bronze or raw in bronze.parents or bronze in raw.parents:
-        raise ValueError("Raw and Bronze directories must be separate and non-overlapping")
+    config = config or RuntimeConfig.from_env()
+    raw = to_spark_path(raw_path if raw_path is not None else config.raw)
+    bronze = to_spark_path(bronze_path if bronze_path is not None else config.bronze)
+    require_separate_paths([raw, bronze])
     for dataset in DATASETS.values():
-        validate_source_file(raw / dataset.filename)
+        validate_source_file(join_path(raw, dataset.filename))
 
     batch_id = str(uuid4())
-    owns_session = spark is None
-    session = spark if spark is not None else get_spark_session("Bronze ingestion")
+    owns_session = spark is None and config.runtime == RuntimeEnv.LOCAL
+    session = spark if spark is not None else get_spark_session(
+        "Bronze ingestion", runtime=config.runtime)
     try:
+        # Check remote headers/access before the first write; Spark owns remote I/O.
+        if is_remote_path(raw):
+            for dataset in DATASETS.values():
+                read_csv(session, join_path(raw, dataset.filename), dataset.schema).limit(1).count()
         for dataset_name in DATASETS:
             ingest_dataset(session, dataset_name, raw, bronze, batch_id)
     finally:

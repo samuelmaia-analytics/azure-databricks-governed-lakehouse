@@ -7,6 +7,7 @@ from pathlib import Path
 from pyspark.sql import DataFrame, functions as F
 
 from src.common.spark import to_spark_path
+from src.common.paths import destination_path as resolve_destination
 from src.quality.engine import DQ_COLUMNS
 
 QUARANTINE_COLUMNS = ("_quarantined_at", "_quarantine_dataset", "_quarantine_batch_id")
@@ -15,7 +16,7 @@ QUARANTINE_COLUMNS = ("_quarantined_at", "_quarantine_dataset", "_quarantine_bat
 @dataclass(frozen=True)
 class QuarantineResult:
     dataset: str
-    destination_path: Path
+    destination_path: str | Path
     batch_id: str
     row_count: int
     written: bool
@@ -34,7 +35,7 @@ def persist_quarantine(
         raise ValueError("Duplicate input columns")
     if set(QUARANTINE_COLUMNS).intersection(invalid_df.columns):
         raise ValueError("Input already contains quarantine metadata")
-    destination = Path(destination_path).resolve()
+    destination = resolve_destination(destination_path)
     count = invalid_df.count()
     if count:
         enriched = invalid_df.select(
