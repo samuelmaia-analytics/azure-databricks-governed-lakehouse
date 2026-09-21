@@ -1,3 +1,5 @@
+import builtins
+import importlib.util
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -114,7 +116,7 @@ def test_local_spark_builder_preserved(monkeypatch):
     platform = MagicMock(builder=builder)
     delta = MagicMock(return_value=builder)
     monkeypatch.setattr("src.common.spark.SparkSession", platform)
-    monkeypatch.setattr("src.common.spark.configure_spark_with_delta_pip", delta)
+    monkeypatch.setattr("delta.configure_spark_with_delta_pip", delta)
     assert get_spark_session("local test", runtime=RuntimeEnv.LOCAL) is builder.getOrCreate.return_value
     builder.master.assert_called_once_with("local[*]")
     delta.assert_called_once_with(builder)
@@ -123,7 +125,7 @@ def test_local_spark_builder_preserved(monkeypatch):
 def test_databricks_reuses_active_session_without_builder(monkeypatch):
     platform, delta = MagicMock(), MagicMock()
     monkeypatch.setattr("src.common.spark.SparkSession", platform)
-    monkeypatch.setattr("src.common.spark.configure_spark_with_delta_pip", delta)
+    monkeypatch.setattr("delta.configure_spark_with_delta_pip", delta)
     assert get_spark_session("platform", runtime=RuntimeEnv.DATABRICKS) is (
         platform.getActiveSession.return_value)
     platform.builder.appName.assert_not_called()
@@ -144,3 +146,37 @@ def test_explicit_platform_session(monkeypatch):
     monkeypatch.setattr("src.common.spark.SparkSession", platform)
     assert get_spark_session("platform", runtime=RuntimeEnv.DATABRICKS, existing=supplied) is supplied
     platform.getActiveSession.assert_not_called()
+
+
+@pytest.mark.parametrize("session_source", ["existing", "active", "missing"])
+def test_databricks_import_and_session_do_not_require_delta(monkeypatch, session_source):
+    import src.common.spark as spark_module
+
+    original_import = builtins.__import__
+
+    def without_delta(name, *args, **kwargs):
+        if name == "delta" or name.startswith("delta."):
+            raise ModuleNotFoundError("Delta is deliberately unavailable in this test")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", without_delta)
+    # Execute a fresh module so a cached import cannot conceal a dependency.
+    spec = importlib.util.spec_from_file_location("_spark_without_delta", spark_module.__file__)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    platform, session = MagicMock(), MagicMock()
+    monkeypatch.setattr(module, "SparkSession", platform)
+    platform.getActiveSession.return_value = None if session_source == "missing" else session
+
+    if session_source == "missing":
+        with pytest.raises(RuntimeError, match="No active Databricks"):
+            module.get_spark_session("platform", runtime=RuntimeEnv.DATABRICKS)
+    else:
+        existing = session if session_source == "existing" else None
+        assert module.get_spark_session(
+            "platform", runtime=RuntimeEnv.DATABRICKS, existing=existing,
+        ) is session
+
+    assert platform.getActiveSession.call_count == (session_source != "existing")
+    platform.builder.appName.assert_not_called()
+    session.stop.assert_not_called()

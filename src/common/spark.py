@@ -1,6 +1,5 @@
 """Acquire a local Delta session or reuse the platform's Databricks session."""
 
-from delta import configure_spark_with_delta_pip
 from pyspark.sql import SparkSession
 
 from src.common.paths import to_spark_path as to_spark_path
@@ -20,6 +19,8 @@ def get_spark_session(
         if active is None:
             raise RuntimeError("No active Databricks SparkSession; pass the platform spark explicitly")
         return active
+    from delta import configure_spark_with_delta_pip
+
     builder = (
         SparkSession.builder.appName(app_name)
         .master("local[*]")
