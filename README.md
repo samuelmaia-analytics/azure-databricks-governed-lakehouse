@@ -378,15 +378,6 @@ A execução usa 64 partições de shuffle somente na sessão e verifica a relei
 
 O encerramento do Spark pode registrar falha de limpeza de JAR temporário. Na execução Gold validada, o comando retornou código 1 após registrar `COMPLETE`: as quatro tabelas já haviam sido gravadas, relidas e reconciliadas. Não houve falha de publicação. Ruff e os testes posteriores passaram com código 0. [Detalhes técnicos](docs/gold_model.md).
 
-## Autor
-
-**Samuel de Andrade Maia**
-
-- [LinkedIn](https://linkedin.com/in/samuelmaia-analytics)
-- [GitHub](https://github.com/samuelmaia-analytics)
-- [Portfólio](https://samuelmaia-analytics.github.io/samuelmaia-analytics/)
-
-
 ### Orquestração e recuperação
 
 ```bash
@@ -405,3 +396,11 @@ atomicidade entre tabelas. Consulte o [procedimento de recuperação](docs/recov
 A publicação continua exigindo coordenação manual de consumo e escritores durante
 uma recuperação. IAM corporativo, promoção atômica de releases e execução validada
 em Azure Databricks permanecem fora do escopo implementado nesta revisão.
+
+## Autor
+
+**Samuel de Andrade Maia — Engenheiro de Dados Pleno | Analytics Engineer**
+
+Atuo na **Avanade** desde **20/10/2026**, em Engenharia de Dados. Este é um **projeto pessoal de portfólio**; suas implementações, dados e resultados não representam entregas da Avanade ou de seus clientes.
+
+[LinkedIn](https://www.linkedin.com/in/samuelmaia-analytics/) · [Portfólio](https://samuelmaia-analytics.github.io/samuelmaia-analytics/) · [Currículo em PDF](https://samuelmaia-analytics.github.io/samuelmaia-analytics/assets/Samuel_Maia_Curriculo.pdf)
