@@ -1,13 +1,17 @@
 """Stage orchestration using existing transformations and publication contracts."""
 
+from uuid import uuid4
+
 from pyspark.sql import functions as F
 
 from src.bronze.ingest import DATASETS, run_bronze_ingestion, write_delta
+from src.common.paths import join_path
 from src.gold.common import require_key
 from src.gold.dim_product import build_dim_product
 from src.gold.fact_order_items import build_fact_order_items
 from src.gold.fact_orders import build_fact_orders
 from src.gold.user_behavior import build_user_behavior
+from src.quality.quarantine import persist_quarantine
 from src.quality.checks import run_dataset_checks
 from src.quality.engine import apply_quality_rules, build_quality_summary, split_valid_invalid
 from src.quality.publication_gate import PublicationStatus, evaluate_publication_gate
@@ -15,10 +19,33 @@ from src.silver.publish import publish_silver
 
 
 class GateRejected(RuntimeError):
-    def __init__(self, decisions):
+    def __init__(self, decisions, quarantine=None):
         self.decisions = {name: {"status": gate.status.value, "reason": gate.reason}
                           for name, gate in decisions.items()}
+        self.quarantine = quarantine or {}
         super().__init__("Silver publication refused by Publication Gate")
+
+
+class PublicationWriteFailure(RuntimeError):
+    """Completed writes are known; the failed destination may have committed."""
+
+    def __init__(self, layer, completed, failed_dataset):
+        self.publication = {
+            "layer": layer, "completed_datasets": list(completed),
+            "failed_dataset": failed_dataset, "failed_destination_state": "UNKNOWN",
+            "recovery_required": True,
+        }
+        super().__init__(f"Partial {layer} publication; inspect destinations before retry")
+
+
+def write_outputs(layer, outputs, writer):
+    completed = []
+    for name, output in outputs.items():
+        try:
+            writer(name, output)
+        except Exception as exc:
+            raise PublicationWriteFailure(layer, completed, name) from exc
+        completed.append(name)
 
 
 def read_layer(spark, config, layer):
@@ -45,16 +72,29 @@ def run_silver(spark, config):
             [check for check in checks if check["dataset"] == name],
         ) for name, frame in checked.items()
     }
+    # Preserve rejected row evidence in a unique destination per attempt.
+    # Dataset-level failures alone do not quarantine an entire table.
+    quarantine = {}
+    attempt_id = uuid4().hex
+    for name, gate in decisions.items():
+        if gate.invalid_rows:
+            _, invalid = split_valid_invalid(checked[name])
+            result = persist_quarantine(
+                invalid, name, join_path(config.dataset("quarantine", name), attempt_id), attempt_id,
+            )
+            quarantine[name] = {"rows": result.row_count, "path": str(result.destination_path)}
     # Complete every gate before publishing any Silver dataset.
     if any(gate.status != PublicationStatus.APPROVED for gate in decisions.values()):
-        raise GateRejected(decisions)
+        raise GateRejected(decisions, quarantine)
     counts = {}
-    for name, frame in checked.items():
+
+    def publish(name, frame):
         valid, _ = split_valid_invalid(frame)
         result = publish_silver(valid, name, config.dataset("silver", name), decisions[name])
         if not result.written:
             raise RuntimeError(f"Silver publication did not write {name}")
         counts[name] = result.row_count
+    write_outputs("silver", checked, publish)
     return {"status": "SUCCESS", "rows": counts,
             "gates": {name: gate.status.value for name, gate in decisions.items()}}
 
@@ -94,6 +134,6 @@ def run_gold(spark, config):
             or user_totals[1] != expected_items or user_totals[2] != item_totals[0]):
         raise ValueError("Gold cross-table reconciliation failed")
     # No publication until all outputs and reconciliations above have passed.
-    for name, (frame, _) in outputs.items():
-        write_delta(frame, config.dataset("gold", name))
+    write_outputs("gold", outputs,
+                  lambda name, output: write_delta(output[0], config.dataset("gold", name)))
     return {"status": "SUCCESS", "rows": counts}

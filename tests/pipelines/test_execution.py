@@ -150,7 +150,8 @@ def test_gate_refusal_prevents_all_silver_and_gold_writes(
 
     def reject_last(summary, checks):
         if summary["dataset"] == "order_products_train":
-            return SimpleNamespace(status=PublicationStatus(status), reason="synthetic rejection")
+            return SimpleNamespace(status=PublicationStatus(status), reason="synthetic rejection",
+                                   invalid_rows=summary["invalid_rows"])
         return evaluator(summary, checks)
 
     monkeypatch.setattr(stages, "evaluate_publication_gate", reject_last)
@@ -176,3 +177,46 @@ def test_gold_validation_failure_before_writes(spark, bronze, config, monkeypatc
     with pytest.raises(ValueError, match="empty output"):
         stages.run_gold(spark, config)
     writer.assert_not_called()
+
+
+def test_partial_write_report_stops_later_destinations(monkeypatch, config):
+    written = []
+
+    def writer(name, output):
+        if name == "second":
+            raise OSError("storage disconnected")
+        written.append(name)
+
+    def silver(*args):
+        stages.write_outputs("silver", dict(first=1, second=2, third=3), writer)
+
+    monkeypatch.setattr(stages, "run_silver", silver)
+    gold = MagicMock()
+    monkeypatch.setattr(stages, "run_gold", gold)
+    with pytest.raises(PipelineFailure) as exc:
+        run_pipeline("silver", config=config, spark=MagicMock())
+    assert written == ["first"]
+    assert exc.value.report["publication"] == {
+        "layer": "silver", "completed_datasets": ["first"],
+        "failed_dataset": "second", "failed_destination_state": "UNKNOWN",
+        "recovery_required": True,
+    }
+    gold.assert_not_called()
+
+
+def test_rejected_rows_quarantined_before_gate_refusal(spark, bronze, config, monkeypatch):
+    bad = bronze.copy()
+    bad["orders"] = bronze["orders"].withColumn("order_dow", stages.F.lit(9))
+    monkeypatch.setattr(stages, "read_layer", lambda *args: bad)
+    quarantine = MagicMock(return_value=SimpleNamespace(
+        row_count=3, destination_path="quarantine/orders/attempt"))
+    publisher = MagicMock()
+    monkeypatch.setattr(stages, "persist_quarantine", quarantine)
+    monkeypatch.setattr(stages, "publish_silver", publisher)
+    with pytest.raises(stages.GateRejected) as exc:
+        stages.run_silver(spark, config)
+    assert exc.value.quarantine["orders"]["rows"] == 3
+    invalid, name, destination, attempt = quarantine.call_args.args
+    assert invalid.count() == 3 and name == "orders"
+    assert destination == stages.join_path(config.dataset("quarantine", "orders"), attempt)
+    publisher.assert_not_called()

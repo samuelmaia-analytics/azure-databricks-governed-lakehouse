@@ -226,6 +226,10 @@ Timestamps técnicos de ingestão e publicação **não são datas de compra**. 
 - [x] Testes automatizados
 - [x] Execução real local
 
+A orquestração principal integra quarentena de erros de linha e relatórios de falhas parciais.
+[Recuperação e limites de publicação](docs/recovery.md). O GitHub Actions executa Ruff e pytest
+com Python 3.11 e Java 17; resultados históricos locais não substituem essa execução.
+
 ### Próximos passos
 
 - [ ] Execução em Azure Databricks
@@ -287,7 +291,12 @@ O diretório `data/gold/` contém as quatro tabelas Delta locais; os dados reais
 
 ## Testes
 
-**186 testes automatizados passando, incluindo 31 Gold.** Os testes protegem os comportamentos e as regras do pipeline: interpretação dos arquivos, preservação dos dados, classificação de falhas e recusa de publicação quando o Gate não aprova.
+Na revisão de governança de 24/10/2026, a suíte sintética completa passou com **192 testes**
+em Python 3.11 e Java 17. Esse resultado inclui as validações de quarentena integrada e
+relatório de falha parcial. Os números de 186 abaixo pertencem à execução histórica
+documentada com os dados reais; esta revisão não reexecutou o dataset completo nem a nuvem.
+
+**Validação histórica: 186 testes automatizados passando, incluindo 31 Gold.** Os testes protegem os comportamentos e as regras do pipeline: interpretação dos arquivos, preservação dos dados, classificação de falhas e recusa de publicação quando o Gate não aprova.
 
 A cobertura inclui schemas, ingestão Bronze, parsing CSV, caminhos Windows com espaços, leitura/escrita Delta Lake, Data Quality, integridade referencial, unicidade, Quarantine, Publication Gate e publicação Silver.
 
@@ -376,3 +385,23 @@ O encerramento do Spark pode registrar falha de limpeza de JAR temporário. Na e
 - [LinkedIn](https://linkedin.com/in/samuelmaia-analytics)
 - [GitHub](https://github.com/samuelmaia-analytics)
 - [Portfólio](https://samuelmaia-analytics.github.io/samuelmaia-analytics/)
+
+
+### Orquestração e recuperação
+
+```bash
+python -m src.pipelines.run --stage full
+# Ou uma etapa, com a camada anterior já disponível:
+python -m src.pipelines.run --stage silver
+python -m src.pipelines.run --stage gold
+```
+
+O executor principal preserva inválidos de linha em quarentena por tentativa
+antes de recusar a publicação Silver. Na falha de escrita Silver/Gold, o relatório
+identifica destinos concluídos e o destino com resultado desconhecido; a próxima
+etapa não é executada. Isso oferece evidências para recuperação, sem criar
+atomicidade entre tabelas. Consulte o [procedimento de recuperação](docs/recovery.md).
+
+A publicação continua exigindo coordenação manual de consumo e escritores durante
+uma recuperação. IAM corporativo, promoção atômica de releases e execução validada
+em Azure Databricks permanecem fora do escopo implementado nesta revisão.

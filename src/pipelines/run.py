@@ -36,6 +36,9 @@ def run_pipeline(stage="full", *, config=None, spark=None):
                 report.update(status="FAILED", failed_stage=name, error_type=type(exc).__name__)
                 if isinstance(exc, stages.GateRejected):
                     report["gates"] = exc.decisions
+                    report["quarantine"] = exc.quarantine
+                if isinstance(exc, stages.PublicationWriteFailure):
+                    report["publication"] = exc.publication
                 raise PipelineFailure(report) from exc
         report["status"] = "SUCCESS"
         return report
